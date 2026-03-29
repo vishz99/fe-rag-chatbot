@@ -3,8 +3,8 @@
 A Retrieval-Augmented Generation chatbot for querying LS-DYNA manuals and FE simulation project databases. Engineers can ask natural language questions about keyword cards, simulation parameters, and project configurations.
 
 ## Status
-- Phase 0 - Environment Setup ✅
-- Phase 1 - Document Ingestion & Chunking ✅
+- Phase 0 - Environment Setup (done)
+- Phase 1 - Document Ingestion & Chunking (done)
 - Phase 2 - Embedding & Vector Store (next)
 
 ## Project Structure
