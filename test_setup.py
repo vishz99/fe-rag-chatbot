@@ -10,7 +10,7 @@ print(f"API key loaded: {'Yes' if api_key and api_key != 'your_key_here' else 'N
 # Test 2: Embedding model
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("all-MiniLM-L6-v2")
-embedding = model.encode("LS-DYNA crash simulation")
+embedding = model.encode("FE simulation parameters")
 print(f"Embedding model works: vector of {len(embedding)} dimensions")
 
 # Test 3: ChromaDB
