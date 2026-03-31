@@ -5,7 +5,9 @@ A Retrieval-Augmented Generation chatbot for querying LS-DYNA manuals and FE sim
 ## Status
 - Phase 0 - Environment Setup (done)
 - Phase 1 - Document Ingestion & Chunking (done)
-- Phase 2 - Embedding & Vector Store (next)
+- Phase 2 - Embedding & Vector Store (done)
+- Phase 3 - Initial working RAG Pipeline (done)
+- Phase 4 - Evaluating and iterating (in progress)
 
 ## Project Structure
 ```
