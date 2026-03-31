@@ -8,6 +8,9 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Vector store (too large for Git, regenerated from embed.py)
+data/vector_store/
+
 # Python
 __pycache__/
 *.pyc
