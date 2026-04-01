@@ -11,6 +11,9 @@ data/processed/*
 # Vector store (too large for Git, regenerated from embed.py)
 data/vector_store/
 
+# Documentation (personal, not yet shared)
+docs/
+
 # Python
 __pycache__/
 *.pyc
