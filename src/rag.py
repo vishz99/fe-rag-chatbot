@@ -50,28 +50,111 @@ def load_components():
 # STEP 2: RETRIEVE RELEVANT CHUNKS
 # ============================================================
 
-def retrieve(query, embed_model, collection, n_results=5):
-    """
-    Find the most relevant chunks for a given query.
+# def retrieve(query, embed_model, collection, n_results=5):
+#     """
+#     Find the most relevant chunks for a given query.
     
-    How it works:
-    1. Embed the query using the same model that embedded the chunks
-    2. ChromaDB compares the query vector to all stored vectors
-    3. Returns the n closest matches with their text and metadata
+#     How it works:
+#     1. Embed the query using the same model that embedded the chunks
+#     2. ChromaDB compares the query vector to all stored vectors
+#     3. Returns the n closest matches with their text and metadata
     
-    n_results=5: 5 chunks are retrived to give the LLM enough
-    context without overwhelming it. Too few and the answer might
-    miss important details. Too many and irrelevant content dilutes
-    the good context. 5 is a starting point — tuned later.
+#     n_results=5: 5 chunks are retrived to give the LLM enough
+#     context without overwhelming it. Too few and the answer might
+#     miss important details. Too many and irrelevant content dilutes
+#     the good context. 5 is a starting point — tuned later.
+#     """
+#     query_embedding = embed_model.encode([query]).tolist()
+    
+#     results = collection.query(
+#         query_embeddings=query_embedding,
+#         n_results=n_results
+#     )
+    
+#     # Package results into a cleaner format
+#     retrieved = []
+#     for i in range(len(results["ids"][0])):
+#         retrieved.append({
+#             "text": results["documents"][0][i],
+#             "metadata": results["metadatas"][0][i],
+#             "distance": results["distances"][0][i]
+#         })
+    
+#     return retrieved
+
+###### Modification 1: With 9,051 manual chunks and only 64 simulation chunks, 
+###### the manual massively outnumbers the project database. The retrieval is biased toward manual results
+
+def retrieve(query, embed_model, collection, n_results=10):
     """
+    Smart retrieval with source-type detection.
+    
+    If the query mentions project names, simulation IDs, or engineer names,
+    we search simulation chunks specifically. If it's a general LS-DYNA
+    question, we search manual chunks. For ambiguous queries, we search
+    both and merge results.
+    """
+    query_lower = query.lower()
     query_embedding = embed_model.encode([query]).tolist()
     
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=n_results
-    )
+    # Detect if query is about project data
+    project_indicators = [
+        "atlas", "meridian", "vanguard", "titan", "nova-s", "pinnacle",
+        "sim-", "project", "simulation",
+        "takahashi", "fernandez", "weber", "schmidt", "nguyen", "johansson",
+        "which projects", "which simulations", "our simulations", "our projects",
+        "peak intrusion", "peak force", "energy absorbed",
+        "who ran", "which engineer", "how many simulations"
+    ]
     
-    # Package results into a cleaner format
+    is_project_query = any(indicator in query_lower for indicator in project_indicators)
+    
+    # Detect if query is about manual/LS-DYNA theory
+    manual_indicators = [
+        "what is *", "what does *", "what is mat_", "what does mat_",
+        "what is elform", "what does elform",
+        "according to the manual", "keyword", "formulation",
+        "how does", "explain", "define", "definition"
+    ]
+    
+    is_manual_query = any(indicator in query_lower for indicator in manual_indicators)
+    
+    # Decide retrieval strategy
+    if is_project_query and not is_manual_query:
+        # Search only simulation chunks
+        results = collection.query(
+            query_embeddings=query_embedding,
+            n_results=n_results,
+            where={"type": "simulation"}
+        )
+    elif is_manual_query and not is_project_query:
+        # Search only manual chunks
+        results = collection.query(
+            query_embeddings=query_embedding,
+            n_results=n_results,
+            where={"type": "manual"}
+        )
+    else:
+        # Ambiguous or cross-source: search both, merge results
+        manual_results = collection.query(
+            query_embeddings=query_embedding,
+            n_results=n_results // 2,
+            where={"type": "manual"}
+        )
+        sim_results = collection.query(
+            query_embeddings=query_embedding,
+            n_results=n_results // 2,
+            where={"type": "simulation"}
+        )
+        # Merge results
+        results = {
+            "ids": [manual_results["ids"][0] + sim_results["ids"][0]],
+            "documents": [manual_results["documents"][0] + sim_results["documents"][0]],
+            "metadatas": [manual_results["metadatas"][0] + sim_results["metadatas"][0]],
+            "distances": [manual_results["distances"][0] + sim_results["distances"][0]]
+        }
+    
+    # Package results
     retrieved = []
     for i in range(len(results["ids"][0])):
         retrieved.append({
@@ -151,6 +234,8 @@ def generate_answer(prompt, client):
     """
     response = client.models.generate_content(
         model="gemini-2.5-flash",
+        # model="gemini-2.5-flash-lite",
+        # model = "gemini-2.0-flash",
         contents=prompt
     )
     return response.text

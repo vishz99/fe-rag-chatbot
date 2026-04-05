@@ -22,6 +22,8 @@ def check_api_quota(client):
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash",
+            # model="gemini-2.5-flash-lite",
+            # model = "gemini-2.0-flash",
             contents="Reply with OK"
         )
         if "error" in response.text.lower() or "quota" in response.text.lower():
@@ -148,7 +150,7 @@ def run_evaluation():
         prompt = build_prompt(q["question"], retrieved)
         try:
             answer = generate_answer(prompt, client)
-            time.sleep(2)  # Rate limit: 10 RPM for free tier
+            time.sleep(7)  # Rate limit: 10 RPM for free tier ###########
         except Exception as e:
             answer = f"ERROR: {e}"
             time.sleep(5)
