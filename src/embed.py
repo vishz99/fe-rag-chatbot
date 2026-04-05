@@ -89,7 +89,7 @@ def create_vector_store(chunks, model, db_path="data/vector_store"):
     
     # Prepare data for ChromaDB
     # ChromaDB expects: ids, documents, embeddings, metadatas ######
-    print(f"\nEmbedding {len(chunks)} chunks... (this may take a few minutes)")
+    print(f"\nEmbedding {len(chunks)} chunks...")
     
     # Process in batches to show progress and manage memory
     batch_size = 100

@@ -9,6 +9,31 @@ import time
 from test_set import test_questions
 from rag import load_components, retrieve, build_prompt, generate_answer
 
+# ============================================================
+# API test
+# ============================================================
+
+def check_api_quota(client):
+    """
+    Quick test to verify the Gemini API is responding before
+    running all 30 questions. Avoids wasting time and getting
+    30 error results when the quota is exhausted.
+    """
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents="Reply with OK"
+        )
+        if "error" in response.text.lower() or "quota" in response.text.lower():
+            print("WARNING: API may be rate limited.")
+            return False
+        print("API quota check: OK")
+        return True
+    except Exception as e:
+        print(f"API quota check FAILED: {e}")
+        print("You may have exceeded your daily limit (250 requests).")
+        print("Quota resets at midnight Pacific Time (9:00 AM CET).")
+        return False
 
 # ============================================================
 # SCORING
@@ -104,6 +129,10 @@ def run_evaluation():
     print("=" * 60)
 
     client, embed_model, collection = load_components()
+
+    if not check_api_quota(client):
+        print("Aborting evaluation. Try again after quota resets.")
+        return []
 
     results = []
     category_scores = {"manual": [], "project": [], "cross": []}
