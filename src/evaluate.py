@@ -13,28 +13,53 @@ from rag import load_components, retrieve, build_prompt, generate_answer
 # API test
 # ============================================================
 
+# def check_api_quota(client):
+#     """
+#     Quick test to verify the Gemini API is responding before
+#     running all 30 questions. Avoids wasting time and getting
+#     30 error results when the quota is exhausted.
+#     """
+#     try:
+#         response = client.models.generate_content(
+#             model="gemini-2.5-flash",
+#             # model="gemini-2.5-flash-lite",
+#             # model = "gemini-2.0-flash",
+#             contents="Reply with OK"
+#         )
+#         if "error" in response.text.lower() or "quota" in response.text.lower():
+#             print("WARNING: API may be rate limited.")
+#             return False
+#         print("API quota check: OK")
+#         return True
+#     except Exception as e:
+#         print(f"API quota check FAILED: {e}")
+#         print("You may have exceeded your daily limit (250 requests).")
+#         print("Quota resets at midnight Pacific Time (9:00 AM CET).")
+#         return False
+
 def check_api_quota(client):
     """
-    Quick test to verify the Gemini API is responding before
+    Quick test to verify the LLM API is responding before
     running all 30 questions. Avoids wasting time and getting
     30 error results when the quota is exhausted.
+    
+    Note: Originally checked Gemini API. Now checks OpenRouter 
+    (Qwen 3.6 Plus) which has 200 RPD free tier limit.
     """
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            # model="gemini-2.5-flash-lite",
-            # model = "gemini-2.0-flash",
-            contents="Reply with OK"
+        response = client.chat.completions.create(
+            model="qwen/qwen3.6-plus:free",
+            messages=[{"role": "user", "content": "Reply with OK"}]
         )
-        if "error" in response.text.lower() or "quota" in response.text.lower():
+        answer = response.choices[0].message.content.lower()
+        if "error" in answer or "quota" in answer:
             print("WARNING: API may be rate limited.")
             return False
         print("API quota check: OK")
         return True
     except Exception as e:
         print(f"API quota check FAILED: {e}")
-        print("You may have exceeded your daily limit (250 requests).")
-        print("Quota resets at midnight Pacific Time (9:00 AM CET).")
+        print("You may have exceeded your daily limit (200 requests for OpenRouter free tier).")
         return False
 
 # ============================================================

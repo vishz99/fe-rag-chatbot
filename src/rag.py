@@ -9,11 +9,43 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 from google import genai
+from openai import OpenAI
 
 
 # ============================================================
 # STEP 1: LOAD COMPONENTS
 # ============================================================
+
+############# Using Google API
+# def load_components():
+#     """
+#     Load all components needed for RAG:
+#     - Environment variables (API key)
+#     - Embedding model (for query embedding)
+#     - Vector store (for retrieval)
+#     - LLM client (for answer generation)
+#     """
+#     # Load API key
+#     load_dotenv()
+#     api_key = os.getenv("GOOGLE_API_KEY")
+#     if not api_key:
+#         raise ValueError("GOOGLE_API_KEY not found in .env file")
+    
+#     # Configure Gemini client
+#     client = genai.Client(api_key=api_key)
+#     print("Gemini API configured.")
+    
+#     # Load embedding model
+#     print("Loading embedding model...")
+#     embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+#     print("Embedding model loaded.")
+    
+#     # Load vector store
+#     db_client = chromadb.PersistentClient(path="data/vector_store")
+#     collection = db_client.get_collection("fe_rag_chunks")
+#     print(f"Vector store loaded: {collection.count()} chunks available.")
+    
+#     return client, embed_model, collection
 
 def load_components():
     """
@@ -23,15 +55,14 @@ def load_components():
     - Vector store (for retrieval)
     - LLM client (for answer generation)
     """
-    # Load API key
     load_dotenv()
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found in .env file")
     
-    # Configure Gemini client
-    client = genai.Client(api_key=api_key)
-    print("Gemini API configured.")
+    # Configure OpenRouter (Qwen 3.6 Plus - free)
+    llm_client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.getenv("OPENROUTER_API_KEY")
+    )
+    print("OpenRouter API configured (Qwen 3.6 Plus).")
     
     # Load embedding model
     print("Loading embedding model...")
@@ -43,7 +74,7 @@ def load_components():
     collection = db_client.get_collection("fe_rag_chunks")
     print(f"Vector store loaded: {collection.count()} chunks available.")
     
-    return client, embed_model, collection
+    return llm_client, embed_model, collection
 
 
 # ============================================================
@@ -223,22 +254,44 @@ def build_prompt(query, retrieved_chunks):
 # STEP 4: GENERATE ANSWER
 # ============================================================
 
+# def generate_answer(prompt, client):
+#     """
+#     Send the prompt to Gemini and get the answer.
+#     What happens here: The prompt (containing the system instruction,
+#     retrieved context, and question) is sent to Google's Gemini API.
+#     The LLM reads the context and generates an answer. Because we
+#     instructed it to only use the provided context, it should ground
+#     its answer in the actual LS-DYNA manual or project database content.
+#     """
+#     response = client.models.generate_content(
+#         model="gemini-2.5-flash",
+#         # model="gemini-2.5-flash-lite",
+#         # model = "gemini-2.0-flash",
+#         contents=prompt
+#     )
+#     return response.text
+
 def generate_answer(prompt, client):
     """
-    Send the prompt to Gemini and get the answer.
+    Send the prompt to the LLM and get the answer.
+    
     What happens here: The prompt (containing the system instruction,
-    retrieved context, and question) is sent to Google's Gemini API.
-    The LLM reads the context and generates an answer. Because we
-    instructed it to only use the provided context, it should ground
-    its answer in the actual LS-DYNA manual or project database content.
+    retrieved context, and question) is sent to OpenRouter's API, which
+    routes it to Qwen 3.6 Plus. The LLM reads the context and generates 
+    an answer. Because we instructed it to only use the provided context, 
+    it should ground its answer in the actual LS-DYNA manual or project 
+    database content.
+    
+    Note: Originally used Google Gemini 2.5 Flash, switched to Qwen 3.6 
+    Plus via OpenRouter due to Gemini's restrictive free tier rate limits 
+    (20 RPD actual vs 250 RPD advertised). OpenRouter provides 200 RPD 
+    with the same API format as OpenAI.
     """
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        # model="gemini-2.5-flash-lite",
-        # model = "gemini-2.0-flash",
-        contents=prompt
+    response = client.chat.completions.create(
+        model="qwen/qwen3.6-plus:free",
+        messages=[{"role": "user", "content": prompt}]
     )
-    return response.text
+    return response.choices[0].message.content
 
 
 # ============================================================

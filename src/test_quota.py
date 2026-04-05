@@ -1,21 +1,20 @@
 from dotenv import load_dotenv
 import os
-from google import genai
+from openai import OpenAI
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
-models_to_try = [
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
-]
+# Test OpenRouter with Qwen 3.6 Plus
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY")
+)
 
-for model in models_to_try:
-    try:
-        response = client.models.generate_content(model=model, contents="Say OK")
-        print(f"{model}: OK - {response.text.strip()}")
-    except Exception as e:
-        error_msg = str(e)[:100]
-        print(f"{model}: FAILED - {error_msg}")
+try:
+    response = client.chat.completions.create(
+        model="qwen/qwen3.6-plus:free",
+        messages=[{"role": "user", "content": "Say OK"}]
+    )
+    print(f"Qwen 3.6 Plus: OK - {response.choices[0].message.content.strip()}")
+except Exception as e:
+    print(f"Qwen 3.6 Plus: FAILED - {str(e)[:200]}")
