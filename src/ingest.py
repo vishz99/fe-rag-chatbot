@@ -47,7 +47,7 @@ def chunk_text(text, chunk_size=800, overlap=200):
     """
     Split text into overlapping chunks of roughly chunk_size characters.
     
-    Overlap since, ff a keyword explanation starts at the end of one chunk,
+    Overlap since, if a keyword explanation starts at the end of one chunk,
     the overlap ensures the beginning of that explanation also appears
     in the next chunk. Without overlap, the context is lost at the boundaries.
     
@@ -285,7 +285,18 @@ def run_pipeline():
         str(raw_dir / "components.csv"),
         str(raw_dir / "contacts.csv")
     )
-    sim_chunks = chunk_simulation_documents(sim_docs, chunk_size=1200, overlap=200)
+    
+    ##### Attempt #1: Chunking splits each simulation into ~6 pieces of 1200 chars.
+    ##### Problem: project name ends up in chunk 1, B-pillar material in chunk 3,
+    ##### so retrieval can't connect "Atlas-X" with "B-pillar material" because
+    ##### they're in different chunks. Evaluated at 33% pass rate for project queries.
+    # sim_chunks = chunk_simulation_documents(sim_docs, chunk_size=1200, overlap=200)
+    
+    ##### Attempt #2: Keep each simulation as one complete document (~6000-7000 chars).
+    ##### No splitting. When retrieval finds a simulation, it gets everything:
+    ##### project name, components, materials, contacts — all together.
+    sim_chunks = sim_docs
+    print(f"Kept {len(sim_chunks)} simulation documents as whole chunks (no splitting)")
     
     # --- Combine all chunks ---
     all_chunks = manual_chunks + sim_chunks
@@ -306,7 +317,6 @@ def run_pipeline():
     print(f"\n{'='*60}")
     print("SAMPLE MANUAL CHUNK:")
     print(f"{'='*60}")
-    # Find a chunk that likely contains keyword content
     for chunk in manual_chunks:
         if "*MAT" in chunk["text"] or "*SECTION" in chunk["text"]:
             print(f"[Page {chunk['page']}]")

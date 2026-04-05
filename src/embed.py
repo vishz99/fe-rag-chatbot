@@ -222,7 +222,7 @@ def main():
     
     for query in test_queries:
         test_retrieval(collection, model, query)
-    
+
 
 
 if __name__ == "__main__":
