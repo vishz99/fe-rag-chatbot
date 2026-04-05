@@ -55,3 +55,5 @@ fe-rag-chatbot/
 5. Add your API key to `.env`: `GOOGLE_API_KEY=your_key_here`
 6. Place LS-DYNA manual PDF in `data/raw/`
 7. Run pipeline: `python src/ingest.py` → `python src/embed.py` → `python src/rag.py`
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/vishz99/fe-rag-chatbot)
