@@ -229,6 +229,75 @@ def build_simulation_documents(sim_csv, comp_csv, contact_csv):
     print(f"Created {len(documents)} simulation documents from CSVs")
     return documents
 
+def split_simulation_documents(documents):
+    """
+    ##### Added as part of Attempt 3
+    Split each simulation document into 2 chunks:
+    1. Header + Results + first half of components
+    2. Header + Results + second half of components + contacts
+    
+    The header (project name, load case, engineer, results) is repeated
+    in BOTH chunks so that every chunk contains the project identity.
+    This solves the problem of Attempt #1 where project name and component
+    details ended up in different chunks.
+    """
+    all_chunks = []
+    
+    for doc in documents:
+        text = doc["text"]
+        
+        # Find where components section starts
+        comp_marker = "Components ("
+        contact_marker = "Contact Definitions ("
+        
+        comp_idx = text.find(comp_marker)
+        contact_idx = text.find(contact_marker)
+        
+        if comp_idx == -1:
+            # No components found, keep as single chunk
+            all_chunks.append(doc)
+            continue
+        
+        # Header = everything before components
+        header = text[:comp_idx].strip()
+        
+        # Components section
+        if contact_idx > comp_idx:
+            components_text = text[comp_idx:contact_idx].strip()
+            contacts_text = text[contact_idx:].strip()
+        else:
+            components_text = text[comp_idx:].strip()
+            contacts_text = ""
+        
+        # Split components roughly in half by lines
+        comp_lines = components_text.split("\n")
+        mid = len(comp_lines) // 2
+        comp_first_half = "\n".join(comp_lines[:mid])
+        comp_second_half = "\n".join(comp_lines[mid:])
+        
+        # Build metadata
+        meta = {
+            "source": doc.get("source", "project_database"),
+            "sim_id": doc.get("sim_id", ""),
+            "project": doc.get("project", ""),
+            "load_case": doc.get("load_case", ""),
+            "type": "simulation"
+        }
+        
+        # Chunk 1: Header + first half of components
+        chunk1_text = f"{header}\n\n{comp_first_half}"
+        chunk1 = {**meta, "text": chunk1_text, "chunk_index": 0}
+        all_chunks.append(chunk1)
+        
+        # Chunk 2: Header + second half of components + contacts
+        chunk2_parts = [header, comp_second_half]
+        if contacts_text:
+            chunk2_parts.append(contacts_text)
+        chunk2_text = "\n\n".join(chunk2_parts)
+        chunk2 = {**meta, "text": chunk2_text, "chunk_index": 1}
+        all_chunks.append(chunk2)
+    
+    return all_chunks
 
 def chunk_simulation_documents(documents, chunk_size=1200, overlap=200):
     """
@@ -270,7 +339,8 @@ def run_pipeline():
     print(f"\n{'='*60}")
     print(f"Processing PDF: {pdf_path}")
     print(f"{'='*60}")
-    
+
+    # Chunking the (Ls-Dyna) Manual in to chunks of size 800 words with 200 word overlap
     pages = extract_pdf_text(str(pdf_path))
     manual_chunks = chunk_pdf_pages(pages, chunk_size=800, overlap=200)
     manual_chunks = filter_noisy_chunks(manual_chunks)
@@ -286,17 +356,18 @@ def run_pipeline():
         str(raw_dir / "contacts.csv")
     )
     
-    ##### Attempt #1: Chunking splits each simulation into ~6 pieces of 1200 chars.
-    ##### Problem: project name ends up in chunk 1, B-pillar material in chunk 3,
-    ##### so retrieval can't connect "Atlas-X" with "B-pillar material" because
-    ##### they're in different chunks. Evaluated at 33% pass rate for project queries.
+    ##### Attempt #1: 1200-char chunks — splits simulations into ~6 pieces, 
+    ##### separating project name from component details. 33% project pass rate.
     # sim_chunks = chunk_simulation_documents(sim_docs, chunk_size=1200, overlap=200)
     
-    ##### Attempt #2: Keep each simulation as one complete document (~6000-7000 chars).
-    ##### No splitting. When retrieval finds a simulation, it gets everything:
-    ##### project name, components, materials, contacts — all together.
-    sim_chunks = sim_docs
-    print(f"Kept {len(sim_chunks)} simulation documents as whole chunks (no splitting)")
+    ##### Attempt #2: Whole documents (~6000-7000 chars) — embedding becomes too 
+    ##### vague, retrieval drops to 0% for project queries.
+    # sim_chunks = sim_docs
+    
+    ##### Attempt #3: Split each simulation into 2 focused chunks — header (project 
+    ##### info + results) repeated in both, so every chunk contains the project name.
+    sim_chunks = split_simulation_documents(sim_docs)
+    print(f"Created {len(sim_chunks)} simulation chunks (2 per simulation)")
     
     # --- Combine all chunks ---
     all_chunks = manual_chunks + sim_chunks
