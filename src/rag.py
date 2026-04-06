@@ -271,7 +271,9 @@ def build_prompt(query, retrieved_chunks):
 #     )
 #     return response.text
 
-def generate_answer(prompt, client):
+#################### Updated ########################
+#################### Updated 2: Includes retry logic ########################
+def generate_answer(prompt, client, max_retries=3):
     """
     Send the prompt to the LLM and get the answer.
     
@@ -287,11 +289,22 @@ def generate_answer(prompt, client):
     (20 RPD actual vs 250 RPD advertised). OpenRouter provides 200 RPD 
     with the same API format as OpenAI.
     """
-    response = client.chat.completions.create(
-        model="qwen/qwen3.6-plus:free",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
+    import time as time_module
+
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="qwen/qwen3.6-plus:free",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                wait = 30 * (attempt + 1)
+                print(f"    Rate limited. Waiting {wait}s before retry {attempt + 2}/{max_retries}...")
+                time_module.sleep(wait)
+            else:
+                return f"ERROR: {e}"
 
 
 # ============================================================

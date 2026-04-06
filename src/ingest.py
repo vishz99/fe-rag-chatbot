@@ -229,6 +229,7 @@ def build_simulation_documents(sim_csv, comp_csv, contact_csv):
     print(f"Created {len(documents)} simulation documents from CSVs")
     return documents
 
+##### Updated: #################################################################
 def split_simulation_documents(documents):
     """
     ##### Added as part of Attempt 3

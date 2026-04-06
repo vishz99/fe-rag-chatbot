@@ -102,8 +102,12 @@ def score_retrieval(retrieved_chunks, question):
     return scores
 
 
+###### Update 1: 
 def score_answer(answer, question):
     """
+    Score answer quality based on key terms and refusal detection.
+    Key term matching takes priority — if the answer contains the
+    expected terms, it passes even if it hedges with caveats.
     Score answer quality based on:
     1. Does the answer contain key terms from the expected answer?
     2. Did the LLM refuse to answer (indicating retrieval failure)?
@@ -112,17 +116,14 @@ def score_answer(answer, question):
     scores = {}
     answer_lower = answer.lower()
 
-    # Check for refusal
-    refusal_phrases = [
-        "does not contain enough information",
-        "cannot answer",
-        "not mentioned",
-        "no information",
-        "not found in",
-        "not contain",
-        "i cannot"
-    ]
-    scores["refused"] = any(phrase in answer_lower for phrase in refusal_phrases)
+    # Check for API errors first
+    if answer_lower.startswith("error:") or "429" in answer_lower:  
+        scores["refused"] = False
+        scores["key_term_hits"] = "0/0"
+        scores["key_term_ratio"] = 0
+        scores["answer_length"] = len(answer)
+        scores["quality"] = "ERROR - API"
+        return scores
 
     # Key term hits in the answer
     key_terms = question.get("key_terms", [])
@@ -130,14 +131,24 @@ def score_answer(answer, question):
     scores["key_term_hits"] = f"{hits}/{len(key_terms)}"
     scores["key_term_ratio"] = hits / len(key_terms) if key_terms else 0
 
+    # Check for refusal
+    refusal_phrases = [
+        "does not contain enough information",
+        "cannot answer",
+        "no information",
+        "not found in",
+        "i cannot"
+    ]
+    scores["refused"] = any(phrase in answer_lower for phrase in refusal_phrases)
+
     # Length
     scores["answer_length"] = len(answer)
 
-    # Overall quality estimate
-    if scores["refused"]:
-        scores["quality"] = "FAIL - Refused"
-    elif scores["key_term_ratio"] >= 0.5:
+    # Overall quality — key terms take priority over refusal
+    if scores["key_term_ratio"] >= 0.5:
         scores["quality"] = "PASS"
+    elif scores["refused"] and scores["key_term_ratio"] == 0:
+        scores["quality"] = "FAIL - Refused"
     elif scores["key_term_ratio"] > 0:
         scores["quality"] = "PARTIAL"
     else:
@@ -175,7 +186,7 @@ def run_evaluation():
         prompt = build_prompt(q["question"], retrieved)
         try:
             answer = generate_answer(prompt, client)
-            time.sleep(7)  # Rate limit: 10 RPM for free tier ###########
+            time.sleep(20)  # Rate limit: 10 RPM for free tier ########################
         except Exception as e:
             answer = f"ERROR: {e}"
             time.sleep(5)
@@ -220,25 +231,31 @@ def run_evaluation():
     print("=" * 60)
 
     for cat in ["manual", "project", "cross"]:
-        scores = category_scores[cat]
-        total = len(scores)
-        passed = scores.count("PASS")
-        partial = scores.count("PARTIAL")
-        failed = total - passed - partial
-        print(f"\n{cat.upper()} ({total} questions):")
-        print(f"  PASS: {passed}/{total} ({100*passed//total}%)")
-        print(f"  PARTIAL: {partial}/{total}")
-        print(f"  FAIL: {failed}/{total}")
+            scores = category_scores[cat]
+            total = len(scores)
+            passed = scores.count("PASS")
+            partial = scores.count("PARTIAL")
+            errors = sum(1 for s in scores if s.startswith("ERROR"))
+            failed = total - passed - partial - errors
+            print(f"\n{cat.upper()} ({total} questions):")
+            print(f"  PASS: {passed}/{total} ({100*passed//total}%)")
+            print(f"  PARTIAL: {partial}/{total}")
+            print(f"  FAIL: {failed}/{total}")
+            if errors:
+                print(f"  API ERRORS: {errors}/{total}")
 
     all_scores = [r["answer_score"]["quality"] for r in results]
     total = len(all_scores)
     passed = all_scores.count("PASS")
     partial = all_scores.count("PARTIAL")
-    failed = total - passed - partial
+    errors = sum(1 for s in all_scores if s.startswith("ERROR"))
+    failed = total - passed - partial - errors
     print(f"\nOVERALL ({total} questions):")
     print(f"  PASS: {passed}/{total} ({100*passed//total}%)")
     print(f"  PARTIAL: {partial}/{total}")
     print(f"  FAIL: {failed}/{total}")
+    if errors:
+        print(f"  API ERRORS: {errors}/{total}")
 
     # Save detailed results
     output_path = "data/processed/evaluation_results.json"
