@@ -9,7 +9,8 @@ A Retrieval-Augmented Generation chatbot for querying LS-DYNA manuals and FE sim
 - Phase 2 - Embedding & Vector Store (done)
 - Phase 3 - Basic RAG Pipeline (done)
 - Phase 4 - Evaluation & Iteration (80% pass, 0% fail)
-- Phase 5 - Simple UI (next)
+- Phase 5 - Agentic Retrieval (Ongoing)
+- Phase 6 - Simple UI (done)
 
 ## Project Structure
 ```
@@ -38,7 +39,9 @@ fe-rag-chatbot/
 │   ├── check_sim_size.py             ← (5.3) Simulation document size checker
 │   ├── check_failures.py             ← (5.4) Failure analysis utility
 │   ├── test_quota.py                 ← (5.5) API quota verification
-│   └── quick_check.py                ← (5.6) Quick chunk structure verifier
+│   ├── quick_check.py                ← (5.6) Quick chunk structure verifier
+│   ├── agent.py                      ← (7.0) Agentic retrieval: LangGraph tool-calling loop
+│   └── app.py                        ← (8.0) Streamlit UI
 ├── docs/                             ← Phase documentation (gitignored for now)
 ├── notebooks/                        ← Jupyter notebooks for experimentation
 ├── .env                              ← API keys (gitignored)
@@ -53,7 +56,8 @@ fe-rag-chatbot/
 - sentence-transformers (all-MiniLM-L6-v2) — Local embedding model (384-dim vectors)
 - ChromaDB — Vector database (persistent, local)
 - Qwen 3.6 Plus via OpenRouter — LLM generation (free tier, 200 RPD)
-- Streamlit — Chat UI (planned)
+- LangGraph — Agentic tool-calling loop for retrieval routing
+- Streamlit — Chat UI
 
 ## Evaluation Results
 | Category | Pass | Partial | Fail |
