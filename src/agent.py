@@ -252,32 +252,70 @@ def answer_node(state: AgentState) -> AgentState:
     return state
 
 
+def make_force_answer_node(llm_client):
+    """
+    Factory returning the node used once MAX_ITERATIONS is hit. The LLM still
+    asked for a tool call, but the loop is over — so this makes one last call
+    with no `tools` param (it physically cannot call a tool) and an explicit
+    instruction to answer now from whatever context has already been gathered.
+    """
+    def force_answer_node(state: AgentState) -> AgentState:
+        """Hard cap reached — ask the LLM to answer now using only context already retrieved, no more tool calls."""
+        state["messages"].append({
+            "role": "user",
+            "content": (
+                "You have reached the maximum number of search iterations. "
+                "Answer the question now using only the context already retrieved above. "
+                "If it is insufficient, say so clearly."
+            ),
+        })
+        response = llm_client.chat.completions.create(
+            model=AGENT_MODEL,
+            messages=state["messages"],
+        )
+        msg = response.choices[0].message
+        state["messages"].append(_message_to_dict(msg))
+        state["final_answer"] = msg.content or ""
+        return state
+
+    return force_answer_node
+
+
 def route_after_reasoning(state: AgentState) -> str:
     """
-    Conditional edge: if the LLM asked for tool(s), loop back through the
-    tool node; otherwise its last message is already the answer.
-    NOTE: this first pass has no iteration cap yet — that's added next.
+    Conditional edge: if the LLM asked for tool(s) and the iteration cap
+    hasn't been hit, loop back through the tool node. If it asked for
+    tool(s) but the cap is hit, force a final answer instead. Otherwise its
+    last message (no tool_calls) is already the answer.
     """
     last_msg = state["messages"][-1]
     if last_msg.get("tool_calls"):
-        return "tool_node"
+        if state["iterations"] < MAX_ITERATIONS:
+            return "tool_node"
+        return "force_answer_node"
     return "answer_node"
 
 
 def build_agent_graph(llm_client, embed_model, collection):
-    """Wire the reasoning node, tool node, and conditional loop-back edge into a compiled LangGraph graph."""
+    """Wire the reasoning node, tool node, forced-answer node, and conditional edges into a compiled LangGraph graph."""
     graph = StateGraph(AgentState)
     graph.add_node("reasoning_node", make_reasoning_node(llm_client))
     graph.add_node("tool_node", make_tool_node(embed_model, collection))
+    graph.add_node("force_answer_node", make_force_answer_node(llm_client))
     graph.add_node("answer_node", answer_node)
 
     graph.set_entry_point("reasoning_node")
     graph.add_conditional_edges(
         "reasoning_node",
         route_after_reasoning,
-        {"tool_node": "tool_node", "answer_node": "answer_node"},
+        {
+            "tool_node": "tool_node",
+            "force_answer_node": "force_answer_node",
+            "answer_node": "answer_node",
+        },
     )
     graph.add_edge("tool_node", "reasoning_node")
+    graph.add_edge("force_answer_node", END)
     graph.add_edge("answer_node", END)
 
     return graph.compile()
