@@ -407,3 +407,33 @@ def run_pipeline():
 
 if __name__ == "__main__":
     run_pipeline()
+
+
+# For an example: 
+# python -c "import json; c=json.load(open('data/processed/chunks.json','r',encoding='utf-8')); sim=[x for x in c if x.get('type')=='simulation']; print(sim[0]['text'])"
+"""
+Crash Simulation Report: SIM-1000
+Project: Atlas-X (C-segment SUV)
+Project Phase: Series Development
+Load Case: IIHS Small Overlap Front (SOF)
+Barrier: 25% Rigid Barrier, Impact Velocity: 64 km/h
+Solver: LS-DYNA R13.0, Termination Time: 120 ms
+Engineer: S. Takahashi, Date: 2022-06-13
+Minimum Timestep: 0.00068 ms, Mass Scaling: None
+
+Results:
+  Peak Intrusion: 144.4 mm
+  Peak Force: 410.1 kN
+  Energy Absorbed: 60.7 kJ
+  Status: Completed
+  Engineer Notes: Increased mesh density in front rail crush zone to capture local buckling. Runtime increased by 15%.
+
+Components (16 parts):
+  - Front Crash Rails (Left) (Part ID: 4824): CP1000 using *MAT_124, ELFORM=16, thickness 1.43mm, mesh size 3.5mm, 3 integration points. Hourglass: IHQ=6 (QM=0.03) (Belytschko-Bindeman assumed strain). Strain rate: None (quasi-static material curve).
+  - Subframe Front (Part ID: 2169): AL6061-T6 (Cast) using *MAT_024, ELFORM=2, thickness 3.14mm, mesh size 6.2mm, 5 integration points. Hourglass: IHQ=5 (QM=0.05) (Flanagan-Belytschko viscous form). Strain rate: Cowper-Symonds (C=1522, p=4.8 (DP780)).
+  - Shotgun Inner (Left) (Part ID: 8679): DP600 using *MAT_024, ELFORM=2, thickness 1.63mm, mesh size 5.2mm, 3 integration points. Hourglass: IHQ=6 (QM=0.03) (Belytschko-Bindeman assumed strain). Strain rate: None (quasi-static material curve).
+  - A-Pillar (Left) (Part ID: 1653): DP1000 using *MAT_024, ELFORM=16, thickness 1.94mm, mesh size 4.0mm, 3 integration points. Hourglass: IHQ=8 (QM=0.1) (Warping stiffness for shells). Strain rate: None (quasi-static material curve).
+  - Rear Bumper Beam (Part ID: 1339): AL6082-T6 using *MAT_024, ELFORM=16, thickness 2.06mm, mesh size 4.1mm, 7 integration points. Hourglass: IHQ=5 (QM=0.05) (Flanagan-Belytschko viscous form). Strain rate: Tabulated strain rate curves (LCSR with 5 curves at 0.001, 0.1, 10, 100, 500 /s).
+  - B-Pillar (Left) (Part ID: 8245): Tailor-Welded 22MnB5/DP600 using *MAT_024, ELFORM=16, thickness 1.66mm, mesh size 4.5mm, 7 integration points. Hourglass: IHQ=5 (QM=0.05) (Flanagan-Belytschko viscous form). Strain rate: None (quasi-static material curve).
+  - Front Crash Rails (Right) (Part ID: 6700): DP980 using *MAT_024, ELFORM=2, thickness 2.0mm, mesh size 3.9mm, 5 integration points. Hourglass: IHQ=8 (QM=0.1) (Warping stiffness for shells). Strain rate: Cowper-Symonds (C=40.4, p=5 (typical for mild steel)).
+"""
