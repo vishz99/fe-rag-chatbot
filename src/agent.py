@@ -319,3 +319,87 @@ def build_agent_graph(llm_client, embed_model, collection):
     graph.add_edge("answer_node", END)
 
     return graph.compile()
+
+
+# ============================================================
+# STEP 3: ENTRY POINT
+# ============================================================
+
+def ask_agentic(query, llm_client=None, embed_model=None, collection=None, verbose=True):
+    """
+    Agentic counterpart to rag.py's ask(): Query -> agent graph (LLM-driven
+    tool-calling loop, bounded at MAX_ITERATIONS) -> answer.
+
+    Returns (answer, retrieved_chunks, tool_call_log) — a superset of ask()'s
+    (answer, retrieved) shape, with tool_call_log added so the routing
+    decisions the LLM made are inspectable for side-by-side comparison.
+
+    If llm_client/embed_model/collection are not passed in, loads them via
+    rag.load_components() — the same embedding model and ChromaDB collection
+    the existing pipeline uses; nothing is re-embedded or re-indexed.
+    """
+    if llm_client is None or embed_model is None or collection is None:
+        llm_client, embed_model, collection = load_components()
+
+    graph = build_agent_graph(llm_client, embed_model, collection)
+
+    initial_state: AgentState = {
+        "query": query,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": query},
+        ],
+        "retrieved_chunks": [],
+        "tool_call_log": [],
+        "iterations": 0,
+        "final_answer": "",
+    }
+
+    final_state = graph.invoke(initial_state)
+
+    if verbose:
+        print(
+            f"\nAgentic run: {final_state['iterations']} reasoning iteration(s), "
+            f"{len(final_state['tool_call_log'])} tool call(s), "
+            f"{len(final_state['retrieved_chunks'])} chunk(s) retrieved."
+        )
+        for call in final_state["tool_call_log"]:
+            print(f"  -> {call['tool']}({call['args']}) -> {call['n_results']} results")
+
+    return final_state["final_answer"], final_state["retrieved_chunks"], final_state["tool_call_log"]
+
+
+# ============================================================
+# MAIN — Interactive mode (mirrors rag.py's main(), for side-by-side use)
+# ============================================================
+
+def main():
+    print("=" * 60)
+    print("FE Software Doc RAG Chatbot — Agentic Retrieval (Phase 6)")
+    print("Loading components...")
+    print("=" * 60)
+
+    llm_client, embed_model, collection = load_components()
+
+    print("\nReady! Type your question (or 'quit' to exit).\n")
+
+    while True:
+        query = input("You: ").strip()
+
+        if not query:
+            continue
+        if query.lower() in ["quit", "exit", "q"]:
+            print("Goodbye!")
+            break
+
+        try:
+            answer, sources, tool_calls = ask_agentic(query, llm_client, embed_model, collection)
+            print(f"\nAssistant: {answer}\n")
+            print("-" * 40)
+        except Exception as e:
+            print(f"\nError: {e}\n")
+            print("-" * 40)
+
+
+if __name__ == "__main__":
+    main()
